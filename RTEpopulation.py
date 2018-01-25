@@ -98,11 +98,17 @@ class rtePopulationInterface(abc.ABC):
 
 
 class rtePopulationIBM(rtePopulationInterface):
+    
 
-    def __init__(self, individual_list):
+    def __init__(self, individual_list, fitness_function,
+                 population_growth_function):
         self.population = {index: ind for index, ind in
                            enumerate(individual_list)}
         self.max_who = len(self.population) - 1
+        self.fitness_function = fitness_function
+        self.population_growth_function = population_growth_function
+        self.time = 0
+        self.alpha = .5
 
     def __repr__(self):
         return repr(self.population)
@@ -126,7 +132,7 @@ class rtePopulationIBM(rtePopulationInterface):
         for indiv in self.population.values():
             i = indiv.active - bounds[0]
             j = indiv.inactive - bounds[2]
-            k = indiv.inactive - bounds[4]
+            k = indiv.compensating - bounds[4]
             distribution[i, j, k] = distribution[i, j, k]+1
         return active_rtes, inactive_rtes, compensating_mutations, distribution
 
@@ -186,28 +192,23 @@ class rtePopulationIBM(rtePopulationInterface):
             np.sum(compensating_distribution)
 
     def fitness_dist(self):
-        pass
+        fitnesses = np.array([self.fitness_function(indiv) for indiv in
+                              self.population.values()])
+        fitness_dist, edges = np.histogram(fitnesses, bins='auto')
+        return edges[:-1], fitness_dist
 
     def mean_fitness(self):
-        pass
-
-    def birth_rate_dist(self):
-        pass
-
-    def mean_birth_rate(self):
-        pass
-
-    def death_rate_dist(self):
-        pass
-
-    def mean_death_rate(self):
-        pass
+        return np.mean(np.array([self.fitness_function(indiv) for indiv in
+                                 self.population.values()]))
 
     def growth_rate_dist(self):
-        pass
+        fitnesses, fitness_dist = self.fitness_dist()
+        r = self.mean_growth_rate()
+        return fitnesses - self.mean_fitness() + r, fitness_dist
 
     def mean_growth_rate(self):
-        pass
+        r = self.population_growth_function(len(self.population), self.time)
+        return r
 
     def reproduce(self, who):
         indiv = self.population[who]
@@ -220,26 +221,67 @@ class rtePopulationIBM(rtePopulationInterface):
                            numbering scheme''')
         self.max_who = new_who
 
-    def die(self, who):
+    def kill(self, who):
         return self.population.pop(who)
+
+    def hatch(self, who, n):
+        children = [self.population[who].reproduce() for i in range(n)]
+        for child in children:
+            child.parent = who
+        for i in range(1,n+1):
+            new_who = self.max_who + i
+            if new_who not in self.population:
+                self.population[new_who] = children[i-1]
+            else:
+                raise KeyError('''this individual already exists!
+                               Error in numbering scheme''')
+        self.max_who = self.max_who + n
 
     def update(self, dt):
         '''Evolve population forward in time by dt. Any individuals who die
         will be returned so their information can be saved if desired.'''
+        mean_f = self.mean_fitness()
+        r = self.mean_growth_rate()
         self._mutations(dt)
-        dead = self._deaths(dt)
-        self._births(dt)
+        dead = self._deaths(dt, mean_f, r)
+        self._births(dt, mean_f, r)
+        self.time = self.time + dt
         return dead
 
     def _mutations(self, dt):
         for indiv in self.population.values():
             indiv.mutate(dt)
 
-    def _deaths(self, dt):
-        pass
+    def _deaths(self, dt, mean_f, r):
+        death_dict = {}
+        for who, indiv in self.population.items():
+            f = self.fitness_function(indiv)
+            if f - mean_f + r > 0:
+                death_rate = self.alpha * dt
+            else:
+                death_rate = - (f - mean_f + r - self.alpha) * dt
+            death_rate = min(death_rate, 1.0)
+            dead = np.random.binomial(1, death_rate)
+            death_dict[who]=dead
+        dead_list =[]
+        for who, is_dead in death_dict.items():
+            if is_dead:
+                dead_list.append(self.kill(who))
+        return dead_list
+            
 
-    def _births(self, dt):
-        pass
+    def _births(self, dt, mean_f, r):
+        birth_dict = {}
+        for who, indiv in self.population.items():
+            f = self.fitness_function(indiv)
+            if f - mean_f + r > 0:
+                birth_rate = (f - mean_f + r + self.alpha) * dt
+            else:
+                birth_rate = self.alpha * dt
+            births = np.random.poisson(birth_rate)
+            birth_dict[who]=births
+        for who, births in birth_dict.items():
+            self.hatch(who, births)
 
 
 class individual(object):
@@ -324,3 +366,9 @@ class individual(object):
         self.active = self.active + full_inserts - deactivations
         self.inactive = self.inactive + partial_inserts + deactivations
         self.compensating = self.compensating + compensations
+
+def test_fitness_function(indiv):
+    return -.01 * (indiv.active + indiv.inactive - indiv.compensating)
+
+def test_growth_rate_function(N, t):
+    return (1 - N/1000)
