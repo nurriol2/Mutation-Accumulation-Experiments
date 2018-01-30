@@ -108,7 +108,7 @@ class rtePopulationIBM(rtePopulationInterface):
         self.fitness_function = fitness_function
         self.population_growth_function = population_growth_function
         self.time = 0
-        self.alpha = .5
+        self.alpha = 1
 
     def __repr__(self):
         return repr(self.population)
@@ -322,8 +322,11 @@ class individual(object):
             raise ValueError('p_deactivate must be >=0')
         self.p_compensate = p_compensate
 
-        self.step_size = .5*min(1/p_compensate,
+        try:
+            self.step_size = .5*min(1/p_compensate,
                                 .1/(p_full_insert + p_deactivate))
+        except ZeroDivisionError:
+            self.step_size = 1
 
         self.parent = parent
 
