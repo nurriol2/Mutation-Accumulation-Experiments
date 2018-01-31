@@ -7,6 +7,7 @@ This is a temporary script file.
 
 import abc
 import copy
+import functools
 import numpy as np
 
 
@@ -101,14 +102,14 @@ class rtePopulationIBM(rtePopulationInterface):
     
 
     def __init__(self, individual_list, fitness_function,
-                 population_growth_function):
+                 population_growth_function, time = 0, alpha = 1):
         self.population = {index: ind for index, ind in
                            enumerate(individual_list)}
         self.max_who = len(self.population) - 1
-        self.fitness_function = fitness_function
+        self.fitness_function = self._define_indiv_fitness(fitness_function)
         self.population_growth_function = population_growth_function
-        self.time = 0
-        self.alpha = 1
+        self.time = time
+        self.alpha = alpha
 
     def __repr__(self):
         return repr(self.population)
@@ -283,6 +284,14 @@ class rtePopulationIBM(rtePopulationInterface):
         for who, births in birth_dict.items():
             self.hatch(who, births)
 
+    def _define_indiv_fitness(self, fitness_function):
+        def individual_fitness(indiv, fitness_function):
+            return fitness_function(active=indiv.active,
+                                    inactive=indiv.inactive,
+                                    compensating=indiv.compensating)
+        return functools.partial(individual_fitness,
+                                 fitness_function=fitness_function)
+
 
 class individual(object):
 
@@ -370,8 +379,8 @@ class individual(object):
         self.inactive = self.inactive + partial_inserts + deactivations
         self.compensating = self.compensating + compensations
 
-def test_fitness_function(indiv):
-    return -.01 * (indiv.active + indiv.inactive - indiv.compensating)
+def test_fitness_function(active, inactive, compensating):
+    return -.01 * (active + inactive - compensating)
 
 def test_growth_rate_function(N, t):
     return (1 - N/1000)
