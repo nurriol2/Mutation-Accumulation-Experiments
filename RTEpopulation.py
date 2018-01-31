@@ -241,6 +241,8 @@ class rtePopulationIBM(rtePopulationInterface):
     def update(self, dt):
         '''Evolve population forward in time by dt. Any individuals who die
         will be returned so their information can be saved if desired.'''
+        if not bool(self.population): #checks if population dict is empty
+            raise StopIteration('the population has no individuals in it')
         mean_f = self.mean_fitness()
         r = self.mean_growth_rate()
         self._mutations(dt)
