@@ -115,6 +115,30 @@ class rtePopulationIBM(rtePopulationInterface):
         self.time = time
         self.alpha = alpha
 
+    @classmethod
+    def array_init(cls, population_distribution, min_active, min_inactive,
+                   min_compensating, fitness_function,
+                   population_growth_function, p_full_insert, p_partial_insert,
+                   p_deactivate, p_compensate, time=0, alpha=1):
+        population_distribution = np.atleast_3d(population_distribution)
+        max_active = min_active + population_distribution.shape[0] - 1
+        max_inactive = min_inactive + population_distribution.shape[1] - 1
+        max_compensating = min_compensating + \
+            population_distribution.shape[2] - 1
+        ind_list = []
+        for i in range(min_active, max_active + 1):
+            for j in range(min_inactive, max_inactive + 1):
+                for k in range(min_compensating, max_compensating + 1):
+                    coordinates = (i - min_active, j - min_inactive,
+                                   k - min_compensating)
+                    for n in range(population_distribution[coordinates]):
+                        ind = individual(i, j, k, p_full_insert,
+                                         p_partial_insert, p_deactivate,
+                                         p_compensate)
+                        ind_list.append(ind)
+        return cls(ind_list, fitness_function, population_growth_function,
+                   time, alpha)
+
     def __repr__(self):
         return repr(self.population)
 
