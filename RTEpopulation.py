@@ -92,6 +92,11 @@ class rtePopulationInterface(abc.ABC):
     def mean_growth_rate(self):
         pass
 
+    # the current number of individuals in the population
+    @abc.abstractmethod
+    def pop_size(self):
+        pass
+
     # evolve the population forward in time.
     @abc.abstractmethod
     def update(self):
@@ -210,6 +215,9 @@ class rtePopulationIBM(rtePopulationInterface):
         r = self.population_growth_function(len(self.population), self.time)
         return r
 
+    def pop_size(self):
+        return len(self.population)
+
     def reproduce(self, who):
         indiv = self.population[who]
         new_who = self.max_who + 1
@@ -247,8 +255,11 @@ class rtePopulationIBM(rtePopulationInterface):
         self._mutations(dt)
         dead = self._deaths(dt, mean_f, r)
         self._births(dt, mean_f, r)
+        dead_list = []
+        for who in dead:
+            dead_list.append(self.kill(who))
         self.time = self.time + dt
-        return dead
+        return dead_list
 
     def _mutations(self, dt):
         for indiv in self.population.values():
@@ -268,7 +279,7 @@ class rtePopulationIBM(rtePopulationInterface):
         dead_list = []
         for who, is_dead in death_dict.items():
             if is_dead:
-                dead_list.append(self.kill(who))
+                dead_list.append(who)
         return dead_list
 
     def _births(self, dt, mean_f, r):
@@ -504,6 +515,9 @@ class rtePopulationArray(rtePopulationInterface):
         pop_size = np.sum(self.population_distribution)
         r = self.population_growth_function(pop_size, self.time)
         return r
+
+    def pop_size(self):
+        return np.sum(self.population_distribution)
 
     def update(self, dt):
         if np.sum(self.population_distribution) == 0:
