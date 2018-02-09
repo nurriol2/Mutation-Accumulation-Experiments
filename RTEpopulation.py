@@ -236,7 +236,7 @@ class rtePopulationIBM(rtePopulationInterface):
         return fitnesses - self.mean_fitness() + r, fitness_dist
 
     def mean_growth_rate(self):
-        r = self.population_growth_function(len(self.population), self.time)
+        r = self.population_growth_function(self.pop_size(), self.time)
         return r
 
     def pop_size(self):
@@ -536,8 +536,7 @@ class rtePopulationArray(rtePopulationInterface):
         return fitnesses - self.mean_fitness() + r, fitness_dist
 
     def mean_growth_rate(self):
-        pop_size = np.sum(self.population_distribution)
-        r = self.population_growth_function(pop_size, self.time)
+        r = self.population_growth_function(self.pop_size(), self.time)
         return r
 
     def pop_size(self):
