@@ -256,7 +256,7 @@ class rtePopulationIBM(rtePopulationInterface):
     def kill(self, who):
         return self.population.pop(who)
 
-    def hatch(self, who, n):
+    def _hatch(self, who, n):
         children = [self.population[who].reproduce() for i in range(n)]
         for child in children:
             child.parent = who
@@ -270,8 +270,11 @@ class rtePopulationIBM(rtePopulationInterface):
         self.max_who = self.max_who + n
 
     def update(self, dt):
-        '''Evolve population forward in time by dt. Any individuals who die
-        will be returned so their information can be saved if desired.'''
+        '''Evolve population forward in time by dt.
+
+        Any individuals who die will be returned so their information can be
+        saved if desired.
+        '''
         if not bool(self.population):  # checks if population dict is empty
             raise StopIteration('the population has no individuals in it')
         mean_f = self.mean_fitness()
@@ -317,7 +320,7 @@ class rtePopulationIBM(rtePopulationInterface):
             births = np.random.poisson(birth_rate)
             birth_dict[who] = births
         for who, births in birth_dict.items():
-            self.hatch(who, births)
+            self._hatch(who, births)
 
     def _define_indiv_fitness(self, fitness_function):
         def individual_fitness(indiv, fitness_function):
@@ -543,6 +546,12 @@ class rtePopulationArray(rtePopulationInterface):
         return np.sum(self.population_distribution)
 
     def update(self, dt):
+        ''' Evolve the population forward in time by an increment dt.
+
+        The timestep will be chopped up for mutations if the mutation rate is
+        too high. However it won't do so for births and deaths. dt should be
+        significantly less than 1 to get sensible results.
+        '''
         if np.sum(self.population_distribution) == 0:
             raise StopIteration('This population has no individuals in it')
         self._mutations(dt)
@@ -644,6 +653,7 @@ class rtePopulationArray(rtePopulationInterface):
             compensate_increase
         self._trim_updates()
 
+    #removes unnecessary zeros padding out the distribution matrix
     def _trim_updates(self):
         while np.sum(self.population_distribution[0, :, :]) == 0:
             self.population_distribution = \
